@@ -21,11 +21,12 @@ data "aws_iam_policy_document" "allow_access_from_cloudfront_to_www" {
     }
 
     actions = [
-      "s3:GetObject"
+      "s3:*"
     ]
 
     resources = [
-      join("", [module.s3_static_website_www.bucket_arn, "/*"])
+      join("", [module.s3_static_website_www.bucket_arn, "/*"]),
+      module.s3_static_website_www.bucket_arn
     ]
 
     condition {
@@ -56,7 +57,11 @@ data "aws_iam_policy_document" "allow_access_from_cloudfront_to_root" {
       test     = "StringEquals"
       variable = "AWS:SourceArn"
 
-      values = [module.cloudfront_distribution_root.cloudfront_arn]
+      values = [
+        module.cloudfront_distribution_root.cloudfront_arn,
+        module.cloudfront_distribution_www.cloudfront_arn,
+        module.s3_static_website_www.bucket_arn
+      ]
     }
   }
 }
@@ -91,8 +96,8 @@ module "s3_static_website_root" {
       content_type = "text/html"
     },
     {
-      key          = "404.html"
-      source       = "./website/404.html"
+      key          = "error.html"
+      source       = "./website/error.html"
       content_type = "text/html"
     }
   ]
@@ -104,7 +109,6 @@ module "s3_static_website_www" {
   source                                     = "./modules/s3"
   bucket_name                                = join(".", ["www", var.domain_name])
   bucket_force_destroy                       = true
-  website_index_document_suffix              = "index.html"
   website_redirect_all_requests_to_host_name = var.domain_name
   website_redirect_all_requests_to_protocol  = "https"
 
@@ -185,7 +189,7 @@ module "cloudfront_distribution_www" {
 
 module "cloudfront_distribution_root" {
   source                                    = "./modules/cloudfront"
-  default_managed_cache_policy              = data.aws_cloudfront_cache_policy.caching_disabled.id
+  default_managed_cache_policy              = data.aws_cloudfront_cache_policy.caching_optimized.id
   origin_access_control_name                = split(".", var.domain_name)[0]
   origin_access_control_description         = "Origin Access Control for demo S3 website root"
   cloudfront_default_origin_aliases         = [var.domain_name]
