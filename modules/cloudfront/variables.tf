@@ -45,7 +45,7 @@ variable "cloudfront_default_origin_aliases" {
 }
 
 variable "origin" {
-  description = "One or more origins for this distribution (multiples allowed)."
+  description = "One or more origins for this distribution (multiples allowed). Required: domain_name - DNS domain name of either the S3 bucket, or web site of your custom origin. Optional: custom_origin_config - The CloudFront custom origin configuration information. Required: http_port - HTTP port the custom origin listens on. Required: https_port - HTTPS port the custom origin listens on. Required: origin_keepalive_timeout - The Custom KeepAlive timeout, in seconds. By default, AWS enforces an upper limit of 60. But you can request an increase. Defaults to 5. Required: origin_protocol_policy - Origin protocol policy to apply to your origin. One of http-only, https-only, or match-viewer. Required: origin_read_timeout - The Custom Read timeout, in seconds. By default, AWS enforces an upper limit of 60. But you can request an increase. Defaults to 30. Required: origin_ssl_protocols - SSL/TLS protocols that you want CloudFront to use when communicating with your origin over HTTPS. A list of one or more of SSLv3, TLSv1, TLSv1.1, and TLSv1.2."
   type        = any
 }
 
