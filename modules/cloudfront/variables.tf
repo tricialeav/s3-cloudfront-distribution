@@ -12,11 +12,13 @@ variable "default_managed_origin_request_policy" {
 variable "origin_access_control_name" {
   description = "A name that identifies the Origin Access Control."
   type        = string
+  default = null
 }
 
 variable "origin_access_control_description" {
   description = "The description of the Origin Access Control."
   type        = string
+  default = null
 }
 
 variable "origin_access_control_origin_type" {
@@ -42,9 +44,9 @@ variable "cloudfront_default_origin_aliases" {
   type        = list(string)
 }
 
-variable "cloudfront_domain_name" {
-  description = "DNS domain name of either the S3 bucket, or web site of your custom origin."
-  type        = string
+variable "origin" {
+  description = "One or more origins for this distribution (multiples allowed)."
+  type        = any
 }
 
 variable "cloudfront_origin_id" {

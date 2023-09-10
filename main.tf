@@ -13,7 +13,7 @@
 # Assumption 13: Each Cloudfront distribution is serving a single S3 origin
 # Assumption 14: We are using us-east-1 for simplicity with the ACM certificate
 
-data "aws_iam_policy_document" "allow_access_from_cloudfront_to_www" {
+data "aws_iam_policy_document" "allow_access_from_cloudfront_to_root" {
   statement {
     principals {
       type        = "Service"
@@ -25,24 +25,27 @@ data "aws_iam_policy_document" "allow_access_from_cloudfront_to_www" {
     ]
 
     resources = [
-      join("", [module.s3_static_website_www.bucket_arn, "/*"]),
-      module.s3_static_website_www.bucket_arn
+      join("", [module.s3_static_website_root.bucket_arn, "/*"]),
+      module.s3_static_website_root.bucket_arn
     ]
 
     condition {
       test     = "StringEquals"
       variable = "AWS:SourceArn"
 
-      values = [module.cloudfront_distribution_www.cloudfront_arn]
+      values = [module.cloudfront_distribution_root.cloudfront_arn]
     }
   }
 }
 
-data "aws_iam_policy_document" "allow_access_from_cloudfront_to_root" {
+data "aws_iam_policy_document" "allow_access_from_cloudfront_to_www" {
   statement {
     principals {
-      type        = "Service"
-      identifiers = ["cloudfront.amazonaws.com"]
+      type = "Service"
+      identifiers = [
+        "s3.amazonaws.com",
+        "cloudfront.amazonaws.com"
+      ]
     }
 
     actions = [
@@ -50,7 +53,7 @@ data "aws_iam_policy_document" "allow_access_from_cloudfront_to_root" {
     ]
 
     resources = [
-      join("", [module.s3_static_website_root.bucket_arn, "/*"])
+      join("", [module.s3_static_website_www.bucket_arn, "/*"])
     ]
 
     condition {
@@ -60,7 +63,7 @@ data "aws_iam_policy_document" "allow_access_from_cloudfront_to_root" {
       values = [
         module.cloudfront_distribution_root.cloudfront_arn,
         module.cloudfront_distribution_www.cloudfront_arn,
-        module.s3_static_website_www.bucket_arn
+        module.s3_static_website_root.bucket_arn
       ]
     }
   }
@@ -78,13 +81,13 @@ data "aws_cloudfront_origin_request_policy" "all_viewer" {
   name = "Managed-AllViewer"
 }
 
-data "aws_cloudfront_origin_request_policy" "cors_s3_origin" {
-  name = "Managed-CORS-S3Origin"
+data "aws_cloudfront_origin_request_policy" "cors_custom_origin" {
+  name = "Managed-CORS-CustomOrigin"
 }
 
-module "s3_static_website_root" {
+module "s3_static_website_www" {
   source                        = "./modules/s3"
-  bucket_name                   = var.domain_name
+  bucket_name                   = join(".", ["www", var.domain_name])
   bucket_force_destroy          = true
   website_error_document        = "error.html"
   website_index_document_suffix = "index.html"
@@ -105,31 +108,12 @@ module "s3_static_website_root" {
   tags = var.tags
 }
 
-module "s3_static_website_www" {
+module "s3_static_website_root" {
   source                                     = "./modules/s3"
-  bucket_name                                = join(".", ["www", var.domain_name])
+  bucket_name                                = var.domain_name
   bucket_force_destroy                       = true
-  website_redirect_all_requests_to_host_name = var.domain_name
+  website_redirect_all_requests_to_host_name = join(".", ["www", var.domain_name])
   website_redirect_all_requests_to_protocol  = "https"
-
-  # website_routing_rules = [
-  #   {
-  #     condition = {
-  #       http_error_code_returned_equals = "404"
-  #     }
-  #     redirect = {
-  #       replace_key_with = "404.html"
-  #     }
-  #   },
-  #   {
-  #     condition = {
-  #       key_prefix_equals = "routing_example"
-  #     }
-  #     redirect = {
-  #       replace_key_with = "routing_example.html"
-  #     }
-  #   }
-  # ]
 
   tags = var.tags
 }
@@ -168,37 +152,56 @@ module "acm_certificate" {
   tags                      = var.tags
 }
 
-module "cloudfront_distribution_www" {
+module "cloudfront_distribution_root" {
   source                                    = "./modules/cloudfront"
   default_managed_cache_policy              = data.aws_cloudfront_cache_policy.caching_disabled.id
-  origin_access_control_name                = join("-", [split(".", var.domain_name)[0], "www"])
-  origin_access_control_description         = "Origin Access Control for demo S3 website subdomain"
-  cloudfront_default_origin_aliases         = [join(".", ["www", var.domain_name])]
-  cloudfront_default_origin_allowed_methods = ["GET", "HEAD"]
-  cloudfront_default_origin_cached_methods  = ["GET", "HEAD"]
+  cloudfront_default_origin_aliases         = [var.domain_name]
+  cloudfront_default_origin_allowed_methods = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+  cloudfront_default_origin_cached_methods  = ["GET", "HEAD", "OPTIONS"]
+  default_managed_origin_request_policy     = data.aws_cloudfront_origin_request_policy.cors_custom_origin.id
   acm_certificate_arn                       = module.acm_certificate.cert_arn
-  cloudfront_domain_name                    = module.s3_static_website_www.bucket_regional_domain_name
-  cloudfront_origin_id                      = join(".", ["www", split(".", var.domain_name)[0]])
-  cloudfront_default_origin_max_ttl         = 0
-  cloudfront_default_origin_default_ttl     = 0
+  cloudfront_origin_id                      = split(".", var.domain_name)[0]
+
+  origin = [
+    {
+      domain_name = module.s3_static_website_root.website_endpoint[0]
+      custom_origin_config = [
+        {
+          http_port                = 80
+          https_port               = 443
+          origin_keepalive_timeout = 5
+          origin_protocol_policy   = "http-only"
+          origin_read_timeout      = 30
+          origin_ssl_protocols = [
+            "TLSv1.2",
+          ]
+        }
+      ]
+    }
+  ]
 
   tags = var.tags
 
   depends_on = [module.acm_certificate]
 }
 
-module "cloudfront_distribution_root" {
+module "cloudfront_distribution_www" {
   source                                    = "./modules/cloudfront"
   default_managed_cache_policy              = data.aws_cloudfront_cache_policy.caching_optimized.id
-  origin_access_control_name                = split(".", var.domain_name)[0]
-  origin_access_control_description         = "Origin Access Control for demo S3 website root"
-  cloudfront_default_origin_aliases         = [var.domain_name]
+  origin_access_control_name                = join(".", ["www", split(".", var.domain_name)[0]])
+  origin_access_control_description         = "Origin Access Control for demo S3 website Subdomain"
+  cloudfront_default_origin_aliases         = [join(".", ["www", var.domain_name])]
   cloudfront_default_origin_allowed_methods = ["GET", "HEAD"]
   cloudfront_default_origin_cached_methods  = ["GET", "HEAD"]
   acm_certificate_arn                       = module.acm_certificate.cert_arn
-  cloudfront_domain_name                    = module.s3_static_website_root.bucket_regional_domain_name
-  cloudfront_origin_id                      = split(".", var.domain_name)[0]
   cloudfront_origin_default_root_object     = "index.html"
+  cloudfront_origin_id                      = join(".", ["www", split(".", var.domain_name)[0]])
+
+  origin = [
+    {
+      domain_name = module.s3_static_website_www.bucket_regional_domain_name
+    }
+  ]
 
   ordered_cache_behavior = [
     {
@@ -206,11 +209,11 @@ module "cloudfront_distribution_root" {
       allowed_methods        = ["GET", "HEAD"]
       cached_methods         = ["GET", "HEAD"]
       min_ttl                = 0
-      default_ttl            = 0
-      max_ttl                = 0
+      default_ttl            = 3600
+      max_ttl                = 86400
       compress               = false
       viewer_protocol_policy = "redirect-to-https"
-      cache_policy_id        = data.aws_cloudfront_cache_policy.caching_disabled.id
+      cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
     }
   ]
 
@@ -220,12 +223,12 @@ module "cloudfront_distribution_root" {
 }
 
 # Add an allow policy to our bucket(s) once the distribution has been created
-resource "aws_s3_bucket_policy" "allow_access_to_root" {
-  bucket = module.s3_static_website_root.bucket_id
-  policy = data.aws_iam_policy_document.allow_access_from_cloudfront_to_root.json
-}
-
 resource "aws_s3_bucket_policy" "allow_access_to_www" {
   bucket = module.s3_static_website_www.bucket_id
   policy = data.aws_iam_policy_document.allow_access_from_cloudfront_to_www.json
+}
+
+resource "aws_s3_bucket_policy" "allow_access_to_root" {
+  bucket = module.s3_static_website_root.bucket_id
+  policy = data.aws_iam_policy_document.allow_access_from_cloudfront_to_root.json
 }

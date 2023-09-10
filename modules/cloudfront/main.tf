@@ -1,4 +1,5 @@
 resource "aws_cloudfront_origin_access_control" "this" {
+  count = var.origin_access_control_name != null ? 1 : 0
   name                              = var.origin_access_control_name
   description                       = var.origin_access_control_description
   origin_access_control_origin_type = "s3"
@@ -10,10 +11,27 @@ resource "aws_cloudfront_distribution" "this" {
   aliases     = var.cloudfront_default_origin_aliases
   price_class = "PriceClass_100"
 
-  origin {
-    domain_name              = var.cloudfront_domain_name
-    origin_access_control_id = aws_cloudfront_origin_access_control.this.id
-    origin_id                = join("-", [var.cloudfront_origin_id, "origin"])
+  dynamic "origin" {
+    for_each = var.origin
+
+    content {
+      domain_name              = origin.value["domain_name"]
+      origin_access_control_id = var.origin_access_control_name != null ? aws_cloudfront_origin_access_control.this[0].id : null
+      origin_id                = join("-", [var.cloudfront_origin_id, "origin"])
+
+      dynamic "custom_origin_config" {
+        for_each = lookup(origin.value, "custom_origin_config", {})
+
+        content {
+          http_port                = custom_origin_config.value["http_port"]
+          https_port               = custom_origin_config.value["https_port"]
+          origin_keepalive_timeout = custom_origin_config.value["origin_keepalive_timeout"]
+          origin_protocol_policy   = custom_origin_config.value["origin_protocol_policy"]
+          origin_read_timeout      = custom_origin_config.value["origin_read_timeout"]
+          origin_ssl_protocols     = custom_origin_config.value["origin_ssl_protocols"]
+        }
+      }
+    }
   }
 
   enabled             = var.cloudfront_origin_enabled
@@ -25,12 +43,12 @@ resource "aws_cloudfront_distribution" "this" {
     cached_methods   = var.cloudfront_default_origin_cached_methods
     target_origin_id = join("-", [var.cloudfront_origin_id, "origin"])
 
-    viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = var.cloudfront_default_origin_min_ttl
-    default_ttl            = var.cloudfront_default_origin_default_ttl
-    max_ttl                = var.cloudfront_default_origin_max_ttl
-    cache_policy_id        = var.default_managed_cache_policy
-    # origin_request_policy_id = var.default_managed_origin_request_policy
+    viewer_protocol_policy   = "redirect-to-https"
+    min_ttl                  = var.cloudfront_default_origin_min_ttl
+    default_ttl              = var.cloudfront_default_origin_default_ttl
+    max_ttl                  = var.cloudfront_default_origin_max_ttl
+    cache_policy_id          = var.default_managed_cache_policy
+    origin_request_policy_id = var.default_managed_origin_request_policy
   }
 
   # Cache behavior with precedence 0
