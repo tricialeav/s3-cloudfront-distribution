@@ -94,16 +94,6 @@ module "s3_static_website_root" {
       key          = "404.html"
       source       = "./website/404.html"
       content_type = "text/html"
-    },
-    {
-      key          = "error.html"
-      source       = "./website/error.html"
-      content_type = "text/html"
-    },
-    {
-      key          = "routing_example.html"
-      source       = "./website/routing_example.html"
-      content_type = "text/html"
     }
   ]
 
@@ -176,7 +166,7 @@ module "acm_certificate" {
 
 module "cloudfront_distribution_www" {
   source                                    = "./modules/cloudfront"
-  default_managed_cache_policy                 = data.aws_cloudfront_cache_policy.caching_disabled.id
+  default_managed_cache_policy              = data.aws_cloudfront_cache_policy.caching_disabled.id
   origin_access_control_name                = join("-", [split(".", var.domain_name)[0], "www"])
   origin_access_control_description         = "Origin Access Control for demo S3 website subdomain"
   cloudfront_default_origin_aliases         = [join(".", ["www", var.domain_name])]
@@ -195,7 +185,7 @@ module "cloudfront_distribution_www" {
 
 module "cloudfront_distribution_root" {
   source                                    = "./modules/cloudfront"
-  default_managed_cache_policy        = data.aws_cloudfront_cache_policy.caching_disabled.id
+  default_managed_cache_policy              = data.aws_cloudfront_cache_policy.caching_disabled.id
   origin_access_control_name                = split(".", var.domain_name)[0]
   origin_access_control_description         = "Origin Access Control for demo S3 website root"
   cloudfront_default_origin_aliases         = [var.domain_name]
@@ -204,6 +194,7 @@ module "cloudfront_distribution_root" {
   acm_certificate_arn                       = module.acm_certificate.cert_arn
   cloudfront_domain_name                    = module.s3_static_website_root.bucket_regional_domain_name
   cloudfront_origin_id                      = split(".", var.domain_name)[0]
+  cloudfront_origin_default_root_object     = "index.html"
 
   ordered_cache_behavior = [
     {
