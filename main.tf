@@ -152,6 +152,7 @@ module "acm_certificate" {
   tags                      = var.tags
 }
 
+# Caching must be disabled to allow for redirect to subdomain
 module "cloudfront_distribution_root" {
   source                                    = "./modules/cloudfront"
   default_managed_cache_policy              = data.aws_cloudfront_cache_policy.caching_disabled.id
