@@ -1,6 +1,6 @@
 output "origin_access_control_id" {
   description = "The unique identifier of this Origin Access Control."
-  value       = var.origin_access_control_name != null ?aws_cloudfront_origin_access_control.this[0].id : null
+  value       = var.origin_access_control_name != null ? aws_cloudfront_origin_access_control.this[0].id : null
 }
 
 output "cloudfront_id" {

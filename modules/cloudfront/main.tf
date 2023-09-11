@@ -1,5 +1,5 @@
 resource "aws_cloudfront_origin_access_control" "this" {
-  count = var.origin_access_control_name != null ? 1 : 0
+  count                             = var.origin_access_control_name != null ? 1 : 0
   name                              = var.origin_access_control_name
   description                       = var.origin_access_control_description
   origin_access_control_origin_type = "s3"

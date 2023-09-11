@@ -210,8 +210,8 @@ module "cloudfront_distribution_www" {
       allowed_methods        = ["GET", "HEAD"]
       cached_methods         = ["GET", "HEAD"]
       min_ttl                = 0
-      default_ttl            = 3600
-      max_ttl                = 86400
+      default_ttl            = 0
+      max_ttl                = 0
       compress               = false
       viewer_protocol_policy = "redirect-to-https"
       cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id

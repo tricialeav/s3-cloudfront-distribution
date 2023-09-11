@@ -12,13 +12,13 @@ variable "default_managed_origin_request_policy" {
 variable "origin_access_control_name" {
   description = "A name that identifies the Origin Access Control."
   type        = string
-  default = null
+  default     = null
 }
 
 variable "origin_access_control_description" {
   description = "The description of the Origin Access Control."
   type        = string
-  default = null
+  default     = null
 }
 
 variable "origin_access_control_origin_type" {
@@ -91,13 +91,13 @@ variable "cloudfront_default_origin_min_ttl" {
 variable "cloudfront_default_origin_max_ttl" {
   description = "Maximum amount of time (in seconds) that an object is in a CloudFront cache before CloudFront forwards another request to your origin to determine whether the object has been updated. Only effective in the presence of Cache-Control max-age, Cache-Control s-maxage, and Expires headers."
   type        = number
-  default     = 86400
+  default     = 0
 }
 
 variable "cloudfront_default_origin_default_ttl" {
   description = "Default amount of time (in seconds) that an object is in a CloudFront cache before CloudFront forwards another request in the absence of a Cache-Control max-age or Expires header."
   type        = number
-  default     = 3600
+  default     = 0
 }
 
 variable "ordered_cache_behavior" {
